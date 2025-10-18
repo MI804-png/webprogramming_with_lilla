@@ -1,0 +1,20 @@
+[Unit]
+Description=TechCorp Solutions Node App
+After=network.target
+
+[Service]
+Type=simple
+User=%i
+WorkingDirectory=/home/%i/exercise
+Environment=DB_HOST=localhost
+Environment=DB_PORT=3306
+Environment=DB_USER=root
+Environment=DB_PASS=yourpass
+Environment=DB_NAME=company_db
+Environment=SESSION_SECRET=your_secret
+Environment=PORT=3000
+ExecStart=/usr/bin/node /home/%i/exercise/start.js
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

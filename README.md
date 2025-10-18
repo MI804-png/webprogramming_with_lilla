@@ -25,6 +25,7 @@ npm start
 
 Optional environment variables (defaults in parentheses):
 - DB_HOST (localhost)
+- DB_PORT (3306)
 - DB_USER (root)
 - DB_PASS (empty)
 - DB_NAME (company_db)
@@ -36,6 +37,10 @@ Import database once:
 ## Deploy to Linux server
 Target path: `/home/<username>/exercise/start.js`
 1) Copy project to server (scp/git). 2) `npm ci` 3) Import SQL 4) `node start.js`.
+
+Optional process managers:
+- PM2: `pm2 start ecosystem.config.js`
+- systemd: see `docs/systemd-techcorp.service` (templated for user instance)
 
 ## Project work + GitHub
 - Make >=5 commits showing progress.
