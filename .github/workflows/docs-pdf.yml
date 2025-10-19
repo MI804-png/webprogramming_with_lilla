@@ -8,6 +8,9 @@ on:
       - 'docs/**'
       - '.github/workflows/docs-pdf.yml'
 
+permissions:
+  contents: write  # Needed for creating releases
+
 jobs:
   generate-pdf:
     runs-on: ubuntu-latest
