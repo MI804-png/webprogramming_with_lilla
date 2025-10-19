@@ -10,7 +10,7 @@
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="<%= basePath %>/css/style.css">
     
     <style>
         .navbar-brand {
@@ -69,7 +69,7 @@
     <!-- Navigation -->
     <nav class="navbar navbar-expand-lg navbar-light bg-light shadow-sm">
         <div class="container">
-            <a class="navbar-brand" href="/">
+            <a class="navbar-brand" href="<%= basePath %>/">
                 <i class="fas fa-code"></i> TechCorp Solutions
             </a>
             
@@ -80,24 +80,24 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        <a class="nav-link <%= currentPath === '/' ? 'active' : '' %>" href="/">
+                        <a class="nav-link <%= currentPath === '/' ? 'active' : '' %>" href="<%= basePath %>/">
                             <i class="fas fa-home"></i> Home
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link <%= currentPath.startsWith('/database') ? 'active' : '' %>" href="/database">
+                        <a class="nav-link <%= currentPath.startsWith('/database') ? 'active' : '' %>" href="<%= basePath %>/database">
                             <i class="fas fa-database"></i> Our Services
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link <%= currentPath.startsWith('/contact') ? 'active' : '' %>" href="/contact">
+                        <a class="nav-link <%= currentPath.startsWith('/contact') ? 'active' : '' %>" href="<%= basePath %>/contact">
                             <i class="fas fa-envelope"></i> Contact
                         </a>
                     </li>
                     
                     <% if (locals.isRegistered) { %>
                     <li class="nav-item">
-                        <a class="nav-link <%= currentPath.startsWith('/messages') ? 'active' : '' %>" href="/messages">
+                        <a class="nav-link <%= currentPath.startsWith('/messages') ? 'active' : '' %>" href="<%= basePath %>/messages">
                             <i class="fas fa-comments"></i> Messages
                         </a>
                     </li>
@@ -109,10 +109,10 @@
                             <i class="fas fa-cog"></i> Admin
                         </a>
                         <ul class="dropdown-menu">
-                            <li><a class="dropdown-item <%= currentPath.startsWith('/crud') ? 'active' : '' %>" href="/crud">
+                            <li><a class="dropdown-item <%= currentPath.startsWith('/crud') ? 'active' : '' %>" href="<%= basePath %>/crud">
                                 <i class="fas fa-edit"></i> Manage Products
                             </a></li>
-                            <li><a class="dropdown-item <%= currentPath.startsWith('/messages') ? 'active' : '' %>" href="/messages">
+                            <li><a class="dropdown-item <%= currentPath.startsWith('/messages') ? 'active' : '' %>" href="<%= basePath %>/messages">
                                 <i class="fas fa-inbox"></i> View Messages
                             </a></li>
                         </ul>
@@ -132,19 +132,19 @@
                             <% } %>
                         </a>
                         <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="/logout">
+                            <li><a class="dropdown-item" href="<%= basePath %>/logout">
                                 <i class="fas fa-sign-out-alt"></i> Logout
                             </a></li>
                         </ul>
                     </li>
                     <% } else { %>
                     <li class="nav-item">
-                        <a class="nav-link" href="/login">
+                        <a class="nav-link" href="<%= basePath %>/login">
                             <i class="fas fa-sign-in-alt"></i> Login
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="/register">
+                        <a class="nav-link" href="<%= basePath %>/register">
                             <i class="fas fa-user-plus"></i> Register
                         </a>
                     </li>
@@ -176,9 +176,9 @@
                 <div class="col-md-6">
                     <h5>Quick Links</h5>
                     <ul class="list-unstyled">
-                        <li><a href="/" class="text-white-50">Home</a></li>
-                        <li><a href="/database" class="text-white-50">Our Services</a></li>
-                        <li><a href="/contact" class="text-white-50">Contact Us</a></li>
+                        <li><a href="<%= basePath %>/" class="text-white-50">Home</a></li>
+                        <li><a href="<%= basePath %>/database" class="text-white-50">Our Services</a></li>
+                        <li><a href="<%= basePath %>/contact" class="text-white-50">Contact Us</a></li>
                         <% if (locals.isRegistered) { %>
                         <li><a href="/messages" class="text-white-50">Messages</a></li>
                         <% } %>
@@ -197,7 +197,7 @@
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <!-- Custom JS -->
-        <script src="/js/main.js"></script>
+    <script src="<%= basePath %>/js/main.js"></script>
         <script>
             document.getElementById('year').textContent = new Date().getFullYear();
         </script>

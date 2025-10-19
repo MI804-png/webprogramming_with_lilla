@@ -1,3 +1,4 @@
+require('dotenv').config();
 const passport = require('passport');
 const LocalStrategy = require('passport-local').Strategy;
 const express = require('express');
@@ -24,6 +25,11 @@ const DB_PASS = process.env.DB_PASS || '';
 const DB_NAME = process.env.DB_NAME || 'company_db';
 const DB_PORT = parseInt(process.env.DB_PORT || '3306', 10);
 const SESSION_SECRET = process.env.SESSION_SECRET || 'webprogramming2_secret_key_2025';
+const BASE_PATH_RAW = process.env.BASE_PATH || '';
+// Normalize BASE_PATH to start with '/' and have no trailing '/' (except root)
+let BASE_PATH = BASE_PATH_RAW.trim();
+if (BASE_PATH && !BASE_PATH.startsWith('/')) BASE_PATH = '/' + BASE_PATH;
+if (BASE_PATH.endsWith('/') && BASE_PATH !== '/') BASE_PATH = BASE_PATH.slice(0, -1);
 
 // MySQL Express Session
 app.use(session({
@@ -49,7 +55,12 @@ app.use(passport.initialize());
 app.use(passport.session());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
-app.use(express.static('public'));
+// Serve static under base path for reverse-proxy route prefix deployments
+if (BASE_PATH) {
+    app.use(BASE_PATH, express.static('public'));
+} else {
+    app.use(express.static('public'));
+}
 app.set("view engine", "ejs");
 app.set('views', path.join(__dirname, 'views'));
 app.use(expressLayouts);
@@ -203,25 +214,30 @@ function isRegistered(req, res, next) {
         res.redirect('/login?error=registration_required');   
 }
 
-// Make middleware available globally
+// Make middleware and locals available globally
 app.use((req, res, next) => {
     res.locals.isAuth = req.isAuthenticated();
     res.locals.user = req.user || null;
     res.locals.isAdmin = req.isAuthenticated() && req.user && req.user.role === 'admin';
     res.locals.isRegistered = req.isAuthenticated() && req.user && (req.user.role === 'registered' || req.user.role === 'admin');
+    // currentPath is relative to the mounted base path (for active nav logic)
     res.locals.currentPath = req.path;
+    res.locals.basePath = BASE_PATH || '';
     next();
 });
 
+// Use a router mounted at BASE_PATH to support reverse-proxy path prefixes (e.g., /app001)
+const router = express.Router();
+
 // Routes
-app.get('/', (req, res) => {
+router.get('/', (req, res) => {
     res.render('mainpage', {
         title: 'TechCorp Solutions - Leading Technology Company'
     });
 });
 
 // Health check endpoint
-app.get('/health', (req, res) => {
+router.get('/health', (req, res) => {
     connection.query('SELECT 1 AS ok', (err) => {
         if (err) {
             return res.status(500).json({ status: 'error', db: false, error: err.code || 'DB_ERROR' });
@@ -231,14 +247,14 @@ app.get('/health', (req, res) => {
 });
 
 // Use route modules
-app.use('/auth', authRoutes);
-app.use('/database', databaseRoutes);
-app.use('/contact', contactRoutes);
-app.use('/messages', messagesRoutes);
-app.use('/crud', crudRoutes);
+router.use('/auth', authRoutes);
+router.use('/database', databaseRoutes);
+router.use('/contact', contactRoutes);
+router.use('/messages', messagesRoutes);
+router.use('/crud', crudRoutes);
 
 // Authentication routes (keeping some in main file for compatibility)
-app.get('/login', (req, res) => {
+router.get('/login', (req, res) => {
     const error = req.query.error;
     const success = req.query.success;
     let errorMessage = '';
@@ -265,14 +281,14 @@ app.get('/login', (req, res) => {
     });
 });
 
-app.get('/register', (req, res) => {
+router.get('/register', (req, res) => {
     res.render('register', { 
         title: 'Register - TechCorp Solutions',
         error: req.query.error || '' 
     });
 });
 
-app.post('/register', (req, res) => {
+router.post('/register', (req, res) => {
     const { username, email, password, confirmPassword } = req.body;
     
     // Validation
@@ -310,12 +326,12 @@ app.post('/register', (req, res) => {
     });
 });
 
-app.post('/login', passport.authenticate('local', {
+router.post('/login', passport.authenticate('local', {
     failureRedirect: '/login?error=invalid',
     successRedirect: '/'
 }));
 
-app.get('/logout', (req, res) => {
+router.get('/logout', (req, res) => {
     req.session.destroy((err) => {
         res.clearCookie('session_cookie_name');
         res.redirect('/');
@@ -330,9 +346,15 @@ app.locals.isAdmin = isAdmin;
 app.locals.isRegistered = isRegistered;
 
 const PORT = process.env.PORT || 3000;
+// Mount the router at the base path
+app.use(BASE_PATH || '/', router);
+
 app.listen(PORT, function() {
     console.log(`TechCorp Solutions app listening on port ${PORT}!`);
     console.log(`Visit http://localhost:${PORT} to view the application`);
+    if (BASE_PATH) {
+        console.log(`App is mounted under base path: ${BASE_PATH}`);
+    }
 });
 
 module.exports = app;
