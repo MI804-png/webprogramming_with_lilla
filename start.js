@@ -316,10 +316,11 @@ app.get('/health', (req, res) => {
     // Check database connection
     connection.ping((err) => {
         if (err) {
-            // Return 200 but indicate database is not connected
-            // This allows the app to be considered healthy even if DB is down temporarily
+            // Return 200 with 'degraded' status when database is unavailable
+            // HTTP 200 allows load balancers to route traffic
+            // 'degraded' status indicates reduced functionality for monitoring
             return res.status(200).json({
-                status: 'ok',
+                status: 'degraded',
                 database: false,
                 message: 'Application running, database unavailable',
                 timestamp: new Date().toISOString()

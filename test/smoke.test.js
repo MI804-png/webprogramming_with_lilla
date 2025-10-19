@@ -96,7 +96,7 @@ serverProcess.stdout.on('data', (data) => {
           process.exit(1);
         }
         
-        if (data.status !== 'ok' && data.status !== 'error') {
+        if (data.status !== 'ok' && data.status !== 'degraded') {
           console.error('❌ Health check status is unexpected:', data);
           serverProcess.kill();
           process.exit(1);
