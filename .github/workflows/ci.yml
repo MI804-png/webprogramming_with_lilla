@@ -9,11 +9,11 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-    
+
     strategy:
       matrix:
         node-version: [18.x]
-    
+
     services:
       mysql:
         image: mysql:8.0

@@ -11,7 +11,7 @@ on:
 jobs:
   generate-pdf:
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -28,11 +28,11 @@ jobs:
           mkdir -p docs
           cat > docs/Documentation-Full.md << 'EOF'
         # TechCorp Solutions - Full Documentation
-        
+
         This is a placeholder. The full documentation will be created separately.
-        
+
         ## Project Overview
-        
+
         TechCorp Solutions is a web application built with Node.js and Express.
         EOF
         fi
@@ -72,7 +72,7 @@ jobs:
         name: Documentation PDF - ${{ github.run_number }}
         body: |
           Automated documentation PDF generation
-          
+
           Generated on: ${{ github.event.head_commit.timestamp }}
           Commit: ${{ github.sha }}
         files: docs/Documentation-Full.pdf
