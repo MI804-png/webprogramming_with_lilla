@@ -311,6 +311,24 @@ app.get('/logout', (req, res) => {
     });
 });
 
+// Health check endpoint for monitoring and CI/CD
+app.get('/health', (req, res) => {
+    const health = {
+        status: 'ok',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        db: false
+    };
+    
+    // Check database connectivity
+    connection.ping((err) => {
+        if (!err) {
+            health.db = true;
+        }
+        res.status(200).json(health);
+    });
+});
+
 // Export helper functions for routes
 app.locals.validPassword = validPassword;
 app.locals.genPassword = genPassword;

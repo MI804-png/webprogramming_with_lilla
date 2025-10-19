@@ -1,0 +1,85 @@
+name: Generate Documentation PDF
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - 'docs/**'
+      - '.github/workflows/docs-pdf.yml'
+
+permissions:
+  contents: write  # Needed for creating releases
+
+jobs:
+  generate-pdf:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Pandoc and dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y pandoc texlive-latex-base texlive-fonts-recommended texlive-latex-extra texlive-xetex
+
+    - name: Check if Documentation-Full.md exists
+      run: |
+        if [ ! -f docs/Documentation-Full.md ]; then
+          echo "Creating placeholder Documentation-Full.md"
+          mkdir -p docs
+          cat > docs/Documentation-Full.md << 'EOF'
+        # TechCorp Solutions - Full Documentation
+
+        This is a placeholder. The full documentation will be created separately.
+
+        ## Project Overview
+
+        TechCorp Solutions is a web application built with Node.js and Express.
+        EOF
+        fi
+
+    - name: Generate PDF from Markdown
+      run: |
+        cd docs
+        pandoc Documentation-Full.md \
+          -o Documentation-Full.pdf \
+          --pdf-engine=xelatex \
+          --toc \
+          --toc-depth=3 \
+          --number-sections \
+          --highlight-style=tango \
+          --variable geometry:margin=1in \
+          --variable fontsize=12pt \
+          --variable papersize=a4 \
+          --variable urlcolor=blue \
+          --variable linkcolor=blue \
+          --variable toccolor=blue \
+          --metadata title="TechCorp Solutions - Full Documentation" \
+          --metadata author="Web Programming II Students" \
+          --metadata date="$(date '+%Y-%m-%d')"
+
+    - name: Upload PDF artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: documentation-pdf
+        path: docs/Documentation-Full.pdf
+        retention-days: 90
+
+    - name: Create release (optional)
+      if: github.event_name == 'workflow_dispatch'
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: docs-${{ github.run_number }}
+        name: Documentation PDF - ${{ github.run_number }}
+        body: |
+          Automated documentation PDF generation
+
+          Generated on: ${{ github.event.head_commit.timestamp }}
+          Commit: ${{ github.sha }}
+        files: docs/Documentation-Full.pdf
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
