@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security Issue
+    url: https://github.com/MI804-png/webprogramming_with_lilla/security/advisories/new
+    about: Please report security vulnerabilities through GitHub Security Advisories
+  - name: GitHub Discussions
+    url: https://github.com/MI804-png/webprogramming_with_lilla/discussions
+    about: Ask questions and discuss ideas with the community
