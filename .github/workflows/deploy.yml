@@ -1,0 +1,135 @@
+name: Deploy to Linux Server
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Deploy to server via SSH
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SSH_HOST }}
+        username: ${{ secrets.SSH_USER }}
+        port: ${{ secrets.SSH_PORT }}
+        key: ${{ secrets.SSH_KEY }}
+        script_stop: true
+        script: |
+          echo "=== Starting deployment for TechCorp Solutions ==="
+          
+          # Navigate to project directory
+          cd ~/webprogramming_with_lilla || exit 1
+          
+          # Pull latest changes from main branch
+          echo "Pulling latest changes from main..."
+          git pull origin main
+          
+          # Install dependencies
+          echo "Installing dependencies..."
+          npm ci --production
+          
+          # Check if .env exists, if not create from example
+          if [ ! -f .env ]; then
+            echo "Creating .env from .env.example..."
+            cp .env.example .env
+            echo "WARNING: Please configure .env with production values"
+          fi
+          
+          echo "=== Deployment completed ==="
+
+    - name: Import database
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SSH_HOST }}
+        username: ${{ secrets.SSH_USER }}
+        port: ${{ secrets.SSH_PORT }}
+        key: ${{ secrets.SSH_KEY }}
+        script_stop: false
+        envs: DB_HOST,DB_PORT,DB_USER,DB_PASS,DB_NAME
+        script: |
+          echo "=== Importing database schema ==="
+          cd ~/webprogramming_with_lilla
+          
+          # Set database environment variables from secrets
+          export DB_HOST="${{ secrets.DB_HOST }}"
+          export DB_PORT="${{ secrets.DB_PORT }}"
+          export DB_USER="${{ secrets.DB_USER }}"
+          export DB_PASS="${{ secrets.DB_PASS }}"
+          export DB_NAME="${{ secrets.DB_NAME }}"
+          
+          # Run database import script
+          if [ -f scripts/import-db.sh ]; then
+            chmod +x scripts/import-db.sh
+            ./scripts/import-db.sh
+          else
+            echo "WARNING: Database import script not found, skipping..."
+          fi
+
+    - name: Restart application with PM2
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SSH_HOST }}
+        username: ${{ secrets.SSH_USER }}
+        port: ${{ secrets.SSH_PORT }}
+        key: ${{ secrets.SSH_KEY }}
+        script: |
+          echo "=== Restarting application with PM2 ==="
+          cd ~/webprogramming_with_lilla
+          
+          # Check if PM2 is installed
+          if ! command -v pm2 &> /dev/null; then
+            echo "PM2 not found, installing..."
+            npm install -g pm2
+          fi
+          
+          # Start or restart the application
+          if pm2 list | grep -q "techcorp-solutions"; then
+            echo "Restarting existing PM2 process..."
+            pm2 restart ecosystem.config.js --update-env
+          else
+            echo "Starting new PM2 process..."
+            pm2 start ecosystem.config.js
+          fi
+          
+          # Save PM2 process list
+          pm2 save
+          
+          # Display PM2 status
+          pm2 list
+          
+          echo "=== Application restarted successfully ==="
+
+    - name: Verify deployment
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SSH_HOST }}
+        username: ${{ secrets.SSH_USER }}
+        port: ${{ secrets.SSH_PORT }}
+        key: ${{ secrets.SSH_KEY }}
+        script: |
+          echo "=== Verifying deployment ==="
+          
+          # Wait for application to start
+          sleep 5
+          
+          # Check PM2 status
+          pm2 status techcorp-solutions
+          
+          # Show recent logs
+          echo "Recent application logs:"
+          pm2 logs techcorp-solutions --lines 20 --nostream

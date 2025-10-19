@@ -1,0 +1,82 @@
+name: CI - Build and Test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [18.x]
+    
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: test_password
+          MYSQL_DATABASE: company_db
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Import database schema
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y mysql-client
+        mysql -h 127.0.0.1 -P 3306 -u root -ptest_password company_db < company_db.sql
+
+    - name: Start application in background
+      env:
+        DB_HOST: 127.0.0.1
+        DB_PORT: 3306
+        DB_USER: root
+        DB_PASS: test_password
+        DB_NAME: company_db
+        SESSION_SECRET: test_secret_key_for_ci
+        PORT: 3000
+      run: |
+        node start.js &
+        echo $! > .app.pid
+        sleep 5
+
+    - name: Run smoke test
+      env:
+        HOST: localhost
+        PORT: 3000
+      run: npm run test:smoke
+
+    - name: Stop application
+      if: always()
+      run: |
+        if [ -f .app.pid ]; then
+          kill $(cat .app.pid) || true
+          rm .app.pid
+        fi
+
+    - name: Check application logs
+      if: failure()
+      run: |
+        echo "Application may have failed to start or respond correctly"
+        ps aux | grep node || true
