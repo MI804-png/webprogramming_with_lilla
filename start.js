@@ -311,6 +311,30 @@ app.get('/logout', (req, res) => {
     });
 });
 
+// Health check endpoint for CI/CD and monitoring
+app.get('/health', (req, res) => {
+    // Check database connection
+    connection.ping((err) => {
+        if (err) {
+            // Return 200 with 'degraded' status when database is unavailable
+            // HTTP 200 allows load balancers to route traffic
+            // 'degraded' status indicates reduced functionality for monitoring
+            return res.status(200).json({
+                status: 'degraded',
+                database: false,
+                message: 'Application running, database unavailable',
+                timestamp: new Date().toISOString()
+            });
+        }
+        
+        res.json({
+            status: 'ok',
+            database: true,
+            timestamp: new Date().toISOString()
+        });
+    });
+});
+
 // Export helper functions for routes
 app.locals.validPassword = validPassword;
 app.locals.genPassword = genPassword;

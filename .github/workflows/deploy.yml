@@ -1,0 +1,76 @@
+name: Deploy to Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    permissions:
+      contents: read
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        ref: main
+    
+    - name: Deploy to server via SSH
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SSH_HOST }}
+        username: ${{ secrets.SSH_USER }}
+        port: ${{ secrets.SSH_PORT }}
+        key: ${{ secrets.SSH_KEY }}
+        script: |
+          # Navigate to application directory
+          cd ~/webprogramming_with_lilla
+          
+          # Pull latest changes
+          git pull origin main
+          
+          # Install dependencies
+          npm ci --production
+          
+          # Ensure .env file exists (copy from example if needed)
+          if [ ! -f .env ]; then
+            echo "Creating .env from .env.production.example"
+            cp .env.production.example .env
+          fi
+          
+          # Import/update database
+          chmod +x scripts/import-db.sh
+          ./scripts/import-db.sh
+          
+          # Restart application with PM2
+          pm2 startOrRestart ecosystem.config.js --env production
+          pm2 save
+          
+          echo "Deployment completed successfully!"
+    
+    - name: Verify deployment
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SSH_HOST }}
+        username: ${{ secrets.SSH_USER }}
+        port: ${{ secrets.SSH_PORT }}
+        key: ${{ secrets.SSH_KEY }}
+        script: |
+          # Check PM2 status
+          pm2 status
+          
+          # Check application health
+          sleep 5
+          curl -f http://localhost:3000/health || exit 1
+          
+          echo "Application is healthy and running!"
