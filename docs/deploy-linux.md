@@ -378,7 +378,9 @@ BACKUP_DIR=~/backups
 DATE=$(date +%Y%m%d_%H%M%S)
 mkdir -p $BACKUP_DIR
 
-mysqldump -u techcorp -p'your_password' company_db > $BACKUP_DIR/company_db_$DATE.sql
+# Use --defaults-extra-file for secure authentication
+# Create ~/.my.cnf with credentials if not using command-line password
+mysqldump -u techcorp -p company_db > $BACKUP_DIR/company_db_$DATE.sql
 
 # Keep only last 7 days of backups
 find $BACKUP_DIR -name "company_db_*.sql" -mtime +7 -delete
@@ -387,6 +389,14 @@ echo "Backup completed: $BACKUP_DIR/company_db_$DATE.sql"
 EOF
 
 chmod +x ~/backup-db.sh
+
+# Optional: Create MySQL config file for passwordless backup (more secure)
+cat > ~/.my.cnf << 'EOF'
+[client]
+user=techcorp
+password=your_password
+EOF
+chmod 600 ~/.my.cnf
 
 # Add to crontab (daily at 2 AM)
 (crontab -l 2>/dev/null; echo "0 2 * * * ~/backup-db.sh") | crontab -
@@ -452,9 +462,16 @@ sudo systemctl restart nginx
 ### Permission Issues
 
 ```bash
-# Fix file permissions
+# Fix file permissions (more restrictive for security)
 chmod -R 755 ~/webprogramming_with_lilla
-chmod -R 777 ~/webprogramming_with_lilla/public/uploads
+
+# Only uploads directory needs write permissions
+# Use 775 instead of 777 for better security
+chmod -R 775 ~/webprogramming_with_lilla/public/uploads
+
+# Ensure the web server user can write to uploads
+# If using Nginx/PM2, the directory owner should be your user
+chown -R $USER:$USER ~/webprogramming_with_lilla/public/uploads
 ```
 
 ## Security Checklist
