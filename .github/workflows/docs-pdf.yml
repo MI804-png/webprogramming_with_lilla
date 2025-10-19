@@ -1,0 +1,70 @@
+name: Build Documentation PDF
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - 'docs/Documentation-Full.md'
+      - 'docs/screenshots/**'
+
+jobs:
+  build-pdf:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Install Pandoc and dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y pandoc texlive-latex-base texlive-fonts-recommended texlive-fonts-extra texlive-latex-extra
+    
+    - name: Build PDF from Documentation
+      run: |
+        cd docs
+        pandoc Documentation-Full.md \
+          -o TechCorp-Solutions-Documentation.pdf \
+          --from markdown \
+          --template eisvogel \
+          --listings \
+          --toc \
+          --toc-depth=3 \
+          --number-sections \
+          --top-level-division=chapter \
+          -V geometry:margin=1in \
+          -V fontsize=11pt \
+          -V documentclass=report \
+          -V papersize=a4 \
+          -V colorlinks=true \
+          -V linkcolor=blue \
+          -V urlcolor=blue \
+          --metadata title="TechCorp Solutions - Web Programming II Documentation" \
+          --metadata author="Web Programming II Students" \
+          --metadata date="$(date +'%B %Y')" \
+          || pandoc Documentation-Full.md \
+          -o TechCorp-Solutions-Documentation.pdf \
+          --from markdown \
+          --toc \
+          --toc-depth=3 \
+          --number-sections \
+          -V geometry:margin=1in \
+          -V fontsize=11pt \
+          -V documentclass=report \
+          -V papersize=a4 \
+          -V colorlinks=true \
+          --metadata title="TechCorp Solutions Documentation" \
+          --metadata author="Web Programming II Students"
+    
+    - name: Upload PDF as artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: documentation-pdf
+        path: docs/TechCorp-Solutions-Documentation.pdf
+        retention-days: 90
+    
+    - name: Display PDF info
+      run: |
+        ls -lh docs/TechCorp-Solutions-Documentation.pdf
+        echo "PDF generated successfully and uploaded as artifact"
