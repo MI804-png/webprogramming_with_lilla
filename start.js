@@ -209,6 +209,7 @@ app.use((req, res, next) => {
     res.locals.user = req.user || null;
     res.locals.isAdmin = req.isAuthenticated() && req.user && req.user.role === 'admin';
     res.locals.isRegistered = req.isAuthenticated() && req.user && (req.user.role === 'registered' || req.user.role === 'admin');
+    res.locals.currentPath = req.path;
     next();
 });
 
@@ -216,6 +217,16 @@ app.use((req, res, next) => {
 app.get('/', (req, res) => {
     res.render('mainpage', {
         title: 'TechCorp Solutions - Leading Technology Company'
+    });
+});
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+    connection.query('SELECT 1 AS ok', (err) => {
+        if (err) {
+            return res.status(500).json({ status: 'error', db: false, error: err.code || 'DB_ERROR' });
+        }
+        return res.json({ status: 'ok', db: true });
     });
 });
 

@@ -80,24 +80,24 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="/">
+                        <a class="nav-link <%= currentPath === '/' ? 'active' : '' %>" href="/">
                             <i class="fas fa-home"></i> Home
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="/database">
+                        <a class="nav-link <%= currentPath.startsWith('/database') ? 'active' : '' %>" href="/database">
                             <i class="fas fa-database"></i> Our Services
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="/contact">
+                        <a class="nav-link <%= currentPath.startsWith('/contact') ? 'active' : '' %>" href="/contact">
                             <i class="fas fa-envelope"></i> Contact
                         </a>
                     </li>
                     
                     <% if (locals.isRegistered) { %>
                     <li class="nav-item">
-                        <a class="nav-link" href="/messages">
+                        <a class="nav-link <%= currentPath.startsWith('/messages') ? 'active' : '' %>" href="/messages">
                             <i class="fas fa-comments"></i> Messages
                         </a>
                     </li>
@@ -109,10 +109,10 @@
                             <i class="fas fa-cog"></i> Admin
                         </a>
                         <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="/crud">
+                            <li><a class="dropdown-item <%= currentPath.startsWith('/crud') ? 'active' : '' %>" href="/crud">
                                 <i class="fas fa-edit"></i> Manage Products
                             </a></li>
-                            <li><a class="dropdown-item" href="/messages">
+                            <li><a class="dropdown-item <%= currentPath.startsWith('/messages') ? 'active' : '' %>" href="/messages">
                                 <i class="fas fa-inbox"></i> View Messages
                             </a></li>
                         </ul>
@@ -188,7 +188,7 @@
             <hr class="my-4">
             <div class="row">
                 <div class="col-md-12 text-center">
-                    <p>&copy; 2025 TechCorp Solutions. Web Programming II Homework Project.</p>
+                    <p>&copy; <span id="year"></span> TechCorp Solutions. Web Programming II Homework Project.</p>
                 </div>
             </div>
         </div>
@@ -197,6 +197,9 @@
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <!-- Custom JS -->
-    <script src="/js/main.js"></script>
+        <script src="/js/main.js"></script>
+        <script>
+            document.getElementById('year').textContent = new Date().getFullYear();
+        </script>
 </body>
 </html>

@@ -42,6 +42,10 @@ Optional process managers:
 - PM2: `pm2 start ecosystem.config.js`
 - systemd: see `docs/systemd-techcorp.service` (templated for user instance)
 
+See also:
+- Deployment guide: `docs/deploy-linux.md`
+- Production env template: `.env.production.example`
+
 ## Project work + GitHub
 - Make >=5 commits showing progress.
 - Use GitHub Projects/Issues to attribute tasks per member.
@@ -49,3 +53,7 @@ Optional process managers:
 
 ## Structure
 - `start.js`, `routes/`, `views/`, `public/`, `company_db.sql`
+
+Additional docs:
+- Full documentation draft: `docs/Documentation-Full.md`
+- Deployment: `docs/deploy-linux.md`
