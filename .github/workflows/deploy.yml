@@ -1,6 +1,9 @@
-name: Deploy to Linux (Manual)
+name: Deploy to Linux (Automatic + Manual)
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       branch:
@@ -22,7 +25,12 @@ jobs:
           echo "${{ secrets.SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           touch ~/.ssh/known_hosts
-          ssh-keyscan -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
+          # default port to 22 if not provided
+          SSH_PORT="${{ secrets.SSH_PORT || '22' }}"
+          SSH_HOST="${{ secrets.SSH_HOST }}"
+          if [ -n "$SSH_HOST" ]; then
+            ssh-keyscan -p "$SSH_PORT" "$SSH_HOST" >> ~/.ssh/known_hosts || true
+          fi
         env:
           SSH_KEY: ${{ secrets.SSH_KEY }}
 
@@ -30,7 +38,7 @@ jobs:
         if: env.SSH_PASSWORD != ''
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y sshpass
+          DEBIAN_FRONTEND=noninteractive sudo apt-get install -y sshpass
         env:
           SSH_PASSWORD: ${{ secrets.SSH_PASSWORD }}
 
@@ -48,19 +56,33 @@ jobs:
           DB_PASS: ${{ secrets.DB_PASS }}
           DB_NAME: ${{ secrets.DB_NAME }}
           SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
-          APP_PORT: ${{ secrets.APP_PORT || '4206' }}
+          APP_PORT: ${{ secrets.APP_PORT }}
           BASE_PATH: ${{ secrets.BASE_PATH }}
         run: |
-          # Create deployment script
-          cat > deploy_script.sh << 'DEPLOY_SCRIPT_EOF'
+          set -euo pipefail
+          # Defaults
+          SSH_PORT="${SSH_PORT:-22}"
+          APP_PORT="${APP_PORT:-4206}"
+          REPO_URL="${REPO_URL:-}"
+          BRANCH="${BRANCH:-main}"
+          SSH_USER="${SSH_USER:-}"
+          SSH_HOST="${SSH_HOST:-}"
+
+          if [ -z "$SSH_HOST" ] || [ -z "$SSH_USER" ]; then
+            echo "SSH_HOST and SSH_USER must be provided via secrets.SSH_HOST and secrets.SSH_USER"
+            exit 1
+          fi
+
+          # Create deployment script that will run on the remote host
+          cat > deploy_script.sh <<'DEPLOY_SCRIPT_EOF'
           #!/bin/bash
           set -euo pipefail
-          
-          export APP_BASE="$HOME/webprogramming_with_lilla"
-          export APP_DIR="$APP_BASE/exercise"
-          
-          echo "Starting deployment process..."
-          
+
+          export APP_BASE="${HOME}/webprogramming_with_lilla"
+          export APP_DIR="${APP_BASE}/exercise"
+
+          echo "Starting deployment process on remote host..."
+
           # Install base tools and Node if missing
           if ! command -v node >/dev/null 2>&1; then
             echo "Installing Node.js and dependencies..."
@@ -70,56 +92,60 @@ jobs:
             sudo apt-get install -y nodejs
             sudo npm i -g pm2
           fi
-          
+
           # Clone or update repo
           if [ ! -d "$APP_BASE/.git" ]; then
             echo "Cloning repository..."
             git clone "$REPO_URL" "$APP_BASE"
           fi
-          
+
           cd "$APP_BASE"
           echo "Updating repository..."
           git fetch --all --prune
-          git checkout "$BRANCH"
-          git pull --ff-only origin "$BRANCH"
-          
-          cd "$APP_DIR"
-          
+          git checkout "$BRANCH" || git checkout -b "$BRANCH" || true
+          git pull --ff-only origin "$BRANCH" || true
+
+          cd "$APP_DIR" || (echo "App dir $APP_DIR not found" && exit 1)
+
           # Ensure scripts executable
           chmod +x scripts/*.sh || true
-          
+
           # Prepare env file
           if [ ! -f .env ]; then
-            if [ -f .env.production.example ]; then 
+            if [ -f .env.production.example ]; then
               cp .env.production.example .env
-            else 
+            else
               touch .env
             fi
           fi
-          
-          # Update .env with provided secrets
+
+          # Update .env with provided secrets (only if env vars are set)
           echo "Updating environment configuration..."
           for KV in DB_HOST DB_PORT DB_USER DB_PASS DB_NAME SESSION_SECRET BASE_PATH; do
-            V=$(eval echo \$$KV)
+            V="$(printenv $KV || true)"
             if [ -n "$V" ]; then
-              if grep -q "^$KV=" .env; then 
-                sed -i "s|^$KV=.*|$KV=$V|" .env
-              else 
-                echo "$KV=$V" >> .env
+              if grep -q "^${KV}=" .env; then
+                sed -i "s|^${KV}=.*|${KV}=${V}|" .env
+              else
+                echo "${KV}=${V}" >> .env
               fi
             fi
           done
-          
-          if grep -q "^PORT=" .env; then 
-            sed -i "s|^PORT=.*|PORT=$APP_PORT|" .env
-          else 
-            echo "PORT=$APP_PORT" >> .env
+
+          if grep -q "^PORT=" .env; then
+            sed -i "s|^PORT=.*|PORT=${APP_PORT}|" .env
+          else
+            echo "PORT=${APP_PORT}" >> .env
           fi
-          
+
           # Install dependencies
           echo "Installing dependencies..."
-          npm ci || npm install
-          
+          if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then
+            npm ci || npm install
+          else
+            npm install
+          fi
+
           # Import DB schema (best-effort)
           if command -v mysql >/dev/null 2>&1; then
             echo "Importing database schema..."
@@ -127,31 +153,52 @@ jobs:
           else
             echo "mysql client not installed; skipping import-db"
           fi
-          
+
           # Start/Restart with PM2
           echo "Starting application with PM2..."
-          pm2 start ecosystem.config.js --update-env || pm2 start start.js --name techcorp
-          pm2 save
-          
-          echo "Deployment completed successfully!"
-          echo "Check health: curl http://127.0.0.1:$APP_PORT/health"
+          if [ -f ecosystem.config.js ]; then
+            pm2 start ecosystem.config.js --update-env || pm2 reload ecosystem.config.js --update-env || true
+          elif [ -f start.js ]; then
+            pm2 start start.js --name webprogramming_with_lilla --update-env || pm2 restart webprogramming_with_lilla --update-env || true
+          else
+            echo "No PM2 entry found (ecosystem.config.js or start.js). Attempting to start npm start"
+            pm2 start npm --name webprogramming_with_lilla -- start || true
+          fi
+          pm2 save || true
+
+          echo "Deployment completed successfully on remote host!"
+          echo "Check health: curl http://127.0.0.1:${APP_PORT}/health"
           DEPLOY_SCRIPT_EOF
-          
+
           chmod +x deploy_script.sh
-          
+
+          # Build remote environment assignment string with safe quoting
+          quote() {
+            # escape single quotes for safe single-quoted shell usage
+            printf "%s" "$1" | sed "s/'/'\"'\"'/g"
+          }
+
+          REMOTE_ENV=""
+          for V in REPO_URL BRANCH DB_HOST DB_PORT DB_USER DB_PASS DB_NAME SESSION_SECRET BASE_PATH APP_PORT; do
+            VAL="$(printenv "$V" || true)"
+            if [ -n "$VAL" ]; then
+              # append like VAR='escapedvalue'
+              ESCAPED="$(quote "$VAL")"
+              REMOTE_ENV="${REMOTE_ENV} ${V}='${ESCAPED}'"
+            fi
+          done
+
           # Transfer and execute deployment script
-          if [ -n "$SSH_PASSWORD" ]; then
+          if [ -n "${SSH_PASSWORD:-}" ]; then
             echo "Using password authentication..."
             sshpass -p "$SSH_PASSWORD" scp -P "$SSH_PORT" -o StrictHostKeyChecking=no deploy_script.sh "$SSH_USER@$SSH_HOST:~/deploy_script.sh"
-            sshpass -p "$SSH_PASSWORD" ssh -p "$SSH_PORT" -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" \
-              "export REPO_URL='$REPO_URL' BRANCH='$BRANCH' DB_HOST='$DB_HOST' DB_PORT='$DB_PORT' DB_USER='$DB_USER' DB_PASS='$DB_PASS' DB_NAME='$DB_NAME' SESSION_SECRET='$SESSION_SECRET' BASE_PATH='$BASE_PATH' APP_PORT='$APP_PORT'; bash ~/deploy_script.sh"
+            sshpass -p "$SSH_PASSWORD" ssh -p "$SSH_PORT" -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" "${REMOTE_ENV} bash ~/deploy_script.sh"
           elif [ -f ~/.ssh/deploy_key ]; then
             echo "Using SSH key authentication..."
             scp -i ~/.ssh/deploy_key -P "$SSH_PORT" -o StrictHostKeyChecking=yes deploy_script.sh "$SSH_USER@$SSH_HOST:~/deploy_script.sh"
-            ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o StrictHostKeyChecking=yes "$SSH_USER@$SSH_HOST" \
-              "export REPO_URL='$REPO_URL' BRANCH='$BRANCH' DB_HOST='$DB_HOST' DB_PORT='$DB_PORT' DB_USER='$DB_USER' DB_PASS='$DB_PASS' DB_NAME='$DB_NAME' SESSION_SECRET='$SESSION_SECRET' BASE_PATH='$BASE_PATH' APP_PORT='$APP_PORT'; bash ~/deploy_script.sh"
+            ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o StrictHostKeyChecking=yes "$SSH_USER@$SSH_HOST" "${REMOTE_ENV} bash ~/deploy_script.sh"
           else
-            echo "No authentication method available"
+            echo "No authentication method available (set secrets.SSH_PASSWORD or secrets.SSH_KEY)"
             exit 1
           fi
 
