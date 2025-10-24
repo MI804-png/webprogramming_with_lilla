@@ -18,6 +18,7 @@ $secrets = @{
     SSH_HOST       = Read-Host "SSH_HOST (server IP/host)"
     SSH_PORT       = Read-Host "SSH_PORT (default 22)"
     SSH_USER       = Read-Host "SSH_USER (Linux username)"
+    SSH_PASSWORD   = Read-Host -AsSecureString "SSH_PASSWORD (optional; leave blank if using SSH key)" | ForEach-Object { [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($_)) }
     DB_HOST        = Read-Host "DB_HOST (default 127.0.0.1)"
     DB_PORT        = Read-Host "DB_PORT (default 3306)"
     DB_USER        = Read-Host "DB_USER"
@@ -25,6 +26,13 @@ $secrets = @{
     DB_NAME        = Read-Host "DB_NAME (default company_db)"
     SESSION_SECRET = Read-Host "SESSION_SECRET (long random)"
     APP_PORT       = Read-Host "APP_PORT (default 3000)"
+    BASE_PATH      = Read-Host "BASE_PATH (e.g., /app206; can be blank)"
+}
+
+# Optional: read SSH private key content from a file path
+$sshKeyPath = Read-Host "SSH_KEY_PATH (optional, path to private key PEM; leave blank to skip)"
+if ($sshKeyPath -and (Test-Path $sshKeyPath)) {
+    $secrets["SSH_KEY"] = Get-Content -Path $sshKeyPath -Raw
 }
 
 foreach ($k in $secrets.Keys) {

@@ -5,7 +5,7 @@
                 <h1 class="display-5 fw-bold">
                     <i class="fas fa-cogs text-primary"></i> Product Management
                 </h1>
-                <a href="/crud/add" class="btn btn-success btn-lg">
+                <a href="<%= basePath %>/crud/add" class="btn btn-success btn-lg">
                     <i class="fas fa-plus"></i> Add New Product
                 </a>
             </div>
@@ -46,7 +46,7 @@
                     <i class="fas fa-box-open fa-4x text-muted mb-3"></i>
                     <h4>No Products Found</h4>
                     <p class="text-muted">Start by adding your first product or service.</p>
-                    <a href="/crud/add" class="btn btn-success btn-custom">
+                    <a href="<%= basePath %>/crud/add" class="btn btn-success btn-custom">
                         <i class="fas fa-plus"></i> Add First Product
                     </a>
                 </div>
@@ -134,10 +134,10 @@
                                     </td>
                                     <td>
                                         <div class="btn-group" role="group">
-                                            <a href="/crud/view/<%= product.id %>" class="btn btn-outline-info btn-sm" title="View">
+                                            <a href="<%= basePath %>/crud/view/<%= product.id %>" class="btn btn-outline-info btn-sm" title="View">
                                                 <i class="fas fa-eye"></i>
                                             </a>
-                                            <a href="/crud/edit/<%= product.id %>" class="btn btn-outline-primary btn-sm" title="Edit">
+                                            <a href="<%= basePath %>/crud/edit/<%= product.id %>" class="btn btn-outline-primary btn-sm" title="Edit">
                                                 <i class="fas fa-edit"></i>
                                             </a>
                                             <button class="btn btn-outline-danger btn-sm" title="Delete" onclick="deleteProduct(<%= product.id %>, '<%= product.name %>')">

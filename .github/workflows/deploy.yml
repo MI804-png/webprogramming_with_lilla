@@ -24,11 +24,18 @@ jobs:
           touch ~/.ssh/known_hosts
           ssh-keyscan -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
 
+      - name: Install sshpass (for password auth)
+        if: ${{ secrets.SSH_PASSWORD != '' }}
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y sshpass
+
       - name: Deploy over SSH
         env:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_PORT: ${{ secrets.SSH_PORT }}
           SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PASSWORD: ${{ secrets.SSH_PASSWORD }}
           REPO_URL: ${{ secrets.REPO_URL || github.server_url + '/' + github.repository }}
           BRANCH: ${{ github.event.inputs.branch || 'main' }}
           DB_HOST: ${{ secrets.DB_HOST }}
@@ -38,8 +45,16 @@ jobs:
           DB_NAME: ${{ secrets.DB_NAME }}
           SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
           APP_PORT: ${{ secrets.APP_PORT || '3000' }}
+          BASE_PATH: ${{ secrets.BASE_PATH || '' }}
         run: |
-          ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o StrictHostKeyChecking=yes "$SSH_USER@$SSH_HOST" bash -lc '
+          CONNECT_CMD="ssh -p \"$SSH_PORT\" -o StrictHostKeyChecking=yes"
+          if [ -n "$SSH_PASSWORD" ]; then
+            CONNECT_CMD="sshpass -p \"$SSH_PASSWORD\" ssh -p \"$SSH_PORT\" -o StrictHostKeyChecking=no"
+          elif [ -f ~/.ssh/deploy_key ]; then
+            CONNECT_CMD="ssh -i ~/.ssh/deploy_key -p \"$SSH_PORT\" -o StrictHostKeyChecking=yes"
+          fi
+
+          eval $CONNECT_CMD "$SSH_USER@$SSH_HOST" bash -lc '
             set -euo pipefail
             export REPO_URL="'"$REPO_URL"'"
             export BRANCH="'"$BRANCH"'"
@@ -69,7 +84,7 @@ jobs:
               if [ -f .env.production.example ]; then cp .env.production.example .env; else touch .env; fi
             fi
             # Update .env with provided secrets (append if missing)
-            for KV in DB_HOST DB_PORT DB_USER DB_PASS DB_NAME SESSION_SECRET; do
+            for KV in DB_HOST DB_PORT DB_USER DB_PASS DB_NAME SESSION_SECRET BASE_PATH; do
               V=$(eval echo \$$KV)
               if grep -q "^$KV=" .env; then sed -i "s|^$KV=.*|$KV=$V|" .env; else echo "$KV=$V" >> .env; fi
             done

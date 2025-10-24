@@ -21,7 +21,7 @@
                     </div>
                     <% } %>
                     
-                    <form action="/login" method="POST">
+                    <form action="<%= basePath %>/login" method="POST">
                         <div class="mb-3">
                             <label for="username" class="form-label">
                                 <i class="fas fa-user"></i> Username
@@ -47,7 +47,7 @@
                     
                     <div class="text-center">
                         <p class="mb-0">Don't have an account?</p>
-                        <a href="/register" class="btn btn-outline-primary btn-custom mt-2">
+                        <a href="<%= basePath %>/register" class="btn btn-outline-primary btn-custom mt-2">
                             <i class="fas fa-user-plus"></i> Create Account
                         </a>
                     </div>
