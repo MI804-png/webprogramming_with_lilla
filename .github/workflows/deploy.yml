@@ -51,61 +51,109 @@ jobs:
           APP_PORT: ${{ secrets.APP_PORT || '4206' }}
           BASE_PATH: ${{ secrets.BASE_PATH }}
         run: |
-          CONNECT_CMD="ssh -p \"$SSH_PORT\" -o StrictHostKeyChecking=yes"
-          if [ -n "$SSH_PASSWORD" ]; then
-            CONNECT_CMD="sshpass -p \"$SSH_PASSWORD\" ssh -p \"$SSH_PORT\" -o StrictHostKeyChecking=no"
-          elif [ -f ~/.ssh/deploy_key ]; then
-            CONNECT_CMD="ssh -i ~/.ssh/deploy_key -p \"$SSH_PORT\" -o StrictHostKeyChecking=yes"
+          # Create deployment script
+          cat > deploy_script.sh << 'DEPLOY_SCRIPT_EOF'
+          #!/bin/bash
+          set -euo pipefail
+          
+          export APP_BASE="$HOME/webprogramming_with_lilla"
+          export APP_DIR="$APP_BASE/exercise"
+          
+          echo "Starting deployment process..."
+          
+          # Install base tools and Node if missing
+          if ! command -v node >/dev/null 2>&1; then
+            echo "Installing Node.js and dependencies..."
+            sudo apt-get update -y
+            sudo apt-get install -y git curl build-essential ca-certificates gnupg
+            curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+            sudo apt-get install -y nodejs
+            sudo npm i -g pm2
           fi
-
-          eval $CONNECT_CMD "$SSH_USER@$SSH_HOST" bash -lc '
-            set -euo pipefail
-            export REPO_URL="'"$REPO_URL"'"
-            export BRANCH="'"$BRANCH"'"
-            export APP_BASE="$HOME/webprogramming_with_lilla"
-            export APP_DIR="$APP_BASE/exercise"
-            # Install base tools and Node if missing
-            if ! command -v node >/dev/null 2>&1; then
-              sudo apt-get update -y
-              sudo apt-get install -y git curl build-essential ca-certificates gnupg
-              curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-              sudo apt-get install -y nodejs
-              sudo npm i -g pm2
+          
+          # Clone or update repo
+          if [ ! -d "$APP_BASE/.git" ]; then
+            echo "Cloning repository..."
+            git clone "$REPO_URL" "$APP_BASE"
+          fi
+          
+          cd "$APP_BASE"
+          echo "Updating repository..."
+          git fetch --all --prune
+          git checkout "$BRANCH"
+          git pull --ff-only origin "$BRANCH"
+          
+          cd "$APP_DIR"
+          
+          # Ensure scripts executable
+          chmod +x scripts/*.sh || true
+          
+          # Prepare env file
+          if [ ! -f .env ]; then
+            if [ -f .env.production.example ]; then 
+              cp .env.production.example .env
+            else 
+              touch .env
             fi
-            # Clone or update repo
-            if [ ! -d "$APP_BASE/.git" ]; then
-              git clone "$REPO_URL" "$APP_BASE"
+          fi
+          
+          # Update .env with provided secrets
+          echo "Updating environment configuration..."
+          for KV in DB_HOST DB_PORT DB_USER DB_PASS DB_NAME SESSION_SECRET BASE_PATH; do
+            V=$(eval echo \$$KV)
+            if [ -n "$V" ]; then
+              if grep -q "^$KV=" .env; then 
+                sed -i "s|^$KV=.*|$KV=$V|" .env
+              else 
+                echo "$KV=$V" >> .env
+              fi
             fi
-            cd "$APP_BASE"
-            git fetch --all --prune
-            git checkout "$BRANCH"
-            git pull --ff-only origin "$BRANCH"
-            cd "$APP_DIR"
-            # Ensure scripts executable
-            chmod +x scripts/*.sh || true
-            # Prepare env file
-            if [ ! -f .env ]; then
-              if [ -f .env.production.example ]; then cp .env.production.example .env; else touch .env; fi
-            fi
-            # Update .env with provided secrets (append if missing)
-            for KV in DB_HOST DB_PORT DB_USER DB_PASS DB_NAME SESSION_SECRET BASE_PATH; do
-              V=$(eval echo \$$KV)
-              if grep -q "^$KV=" .env; then sed -i "s|^$KV=.*|$KV=$V|" .env; else echo "$KV=$V" >> .env; fi
-            done
-            if grep -q "^PORT=" .env; then sed -i "s|^PORT=.*|PORT='"$APP_PORT"'|" .env; else echo "PORT='"$APP_PORT"'" >> .env; fi
-            # Install dependencies
-            npm ci || npm install
-            # Import DB schema (best-effort)
-            if command -v mysql >/dev/null 2>&1; then
-              ./scripts/import-db.sh || true
-            else
-              echo "mysql client not installed; skipping import-db"
-            fi
-            # Start/Restart with PM2
-            pm2 start ecosystem.config.js --update-env || pm2 start start.js --name techcorp
-            pm2 save
-            echo "Deployed. Check health: curl http://127.0.0.1:'"$APP_PORT"'/health"
-          '
+          done
+          
+          if grep -q "^PORT=" .env; then 
+            sed -i "s|^PORT=.*|PORT=$APP_PORT|" .env
+          else 
+            echo "PORT=$APP_PORT" >> .env
+          fi
+          
+          # Install dependencies
+          echo "Installing dependencies..."
+          npm ci || npm install
+          
+          # Import DB schema (best-effort)
+          if command -v mysql >/dev/null 2>&1; then
+            echo "Importing database schema..."
+            ./scripts/import-db.sh || echo "Database import failed, continuing..."
+          else
+            echo "mysql client not installed; skipping import-db"
+          fi
+          
+          # Start/Restart with PM2
+          echo "Starting application with PM2..."
+          pm2 start ecosystem.config.js --update-env || pm2 start start.js --name techcorp
+          pm2 save
+          
+          echo "Deployment completed successfully!"
+          echo "Check health: curl http://127.0.0.1:$APP_PORT/health"
+          DEPLOY_SCRIPT_EOF
+          
+          chmod +x deploy_script.sh
+          
+          # Transfer and execute deployment script
+          if [ -n "$SSH_PASSWORD" ]; then
+            echo "Using password authentication..."
+            sshpass -p "$SSH_PASSWORD" scp -P "$SSH_PORT" -o StrictHostKeyChecking=no deploy_script.sh "$SSH_USER@$SSH_HOST:~/deploy_script.sh"
+            sshpass -p "$SSH_PASSWORD" ssh -p "$SSH_PORT" -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" \
+              "export REPO_URL='$REPO_URL' BRANCH='$BRANCH' DB_HOST='$DB_HOST' DB_PORT='$DB_PORT' DB_USER='$DB_USER' DB_PASS='$DB_PASS' DB_NAME='$DB_NAME' SESSION_SECRET='$SESSION_SECRET' BASE_PATH='$BASE_PATH' APP_PORT='$APP_PORT'; bash ~/deploy_script.sh"
+          elif [ -f ~/.ssh/deploy_key ]; then
+            echo "Using SSH key authentication..."
+            scp -i ~/.ssh/deploy_key -P "$SSH_PORT" -o StrictHostKeyChecking=yes deploy_script.sh "$SSH_USER@$SSH_HOST:~/deploy_script.sh"
+            ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o StrictHostKeyChecking=yes "$SSH_USER@$SSH_HOST" \
+              "export REPO_URL='$REPO_URL' BRANCH='$BRANCH' DB_HOST='$DB_HOST' DB_PORT='$DB_PORT' DB_USER='$DB_USER' DB_PASS='$DB_PASS' DB_NAME='$DB_NAME' SESSION_SECRET='$SESSION_SECRET' BASE_PATH='$BASE_PATH' APP_PORT='$APP_PORT'; bash ~/deploy_script.sh"
+          else
+            echo "No authentication method available"
+            exit 1
+          fi
 
       - name: Show completion
         run: echo "Deployment job finished."
