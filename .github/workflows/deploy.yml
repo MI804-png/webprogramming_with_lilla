@@ -60,6 +60,14 @@ jobs:
             set -euo pipefail
             export REPO_URL="'"$REPO_URL"'"
             export BRANCH="'"$BRANCH"'"
+            export DB_HOST="'"$DB_HOST"'"
+            export DB_PORT="'"$DB_PORT"'"
+            export DB_USER="'"$DB_USER"'"
+            export DB_PASS="'"$DB_PASS"'"
+            export DB_NAME="'"$DB_NAME"'"
+            export SESSION_SECRET="'"$SESSION_SECRET"'"
+            export APP_PORT="'"$APP_PORT"'"
+            export BASE_PATH="'"$BASE_PATH"'"
             export APP_BASE="$HOME/webprogramming_with_lilla"
             export APP_DIR="$APP_BASE/exercise"
             # Install base tools and Node if missing
