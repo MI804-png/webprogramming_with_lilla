@@ -14,6 +14,8 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch || 'main' }}
 
       - name: Prepare SSH key
         if: ${{ secrets.SSH_KEY != '' }}
@@ -58,6 +60,14 @@ jobs:
             set -euo pipefail
             export REPO_URL="'"$REPO_URL"'"
             export BRANCH="'"$BRANCH"'"
+            export DB_HOST="'"$DB_HOST"'"
+            export DB_PORT="'"$DB_PORT"'"
+            export DB_USER="'"$DB_USER"'"
+            export DB_PASS="'"$DB_PASS"'"
+            export DB_NAME="'"$DB_NAME"'"
+            export SESSION_SECRET="'"$SESSION_SECRET"'"
+            export APP_PORT="'"$APP_PORT"'"
+            export BASE_PATH="'"$BASE_PATH"'"
             export APP_BASE="$HOME/webprogramming_with_lilla"
             export APP_DIR="$APP_BASE/exercise"
             # Install base tools and Node if missing
@@ -98,7 +108,11 @@ jobs:
               echo "mysql client not installed; skipping import-db"
             fi
             # Start/Restart with PM2
-            pm2 start ecosystem.config.js --update-env || pm2 start start.js --name techcorp
+            if pm2 describe techcorp > /dev/null 2>&1; then
+              pm2 reload ecosystem.config.js --update-env || pm2 restart techcorp --update-env
+            else
+              pm2 start ecosystem.config.js --update-env || pm2 start start.js --name techcorp
+            fi
             pm2 save
             echo "Deployed. Check health: curl http://127.0.0.1:'"$APP_PORT"'/health"
           '
