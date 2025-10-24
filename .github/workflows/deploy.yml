@@ -16,19 +16,23 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Prepare SSH key
-        if: ${{ secrets.SSH_KEY != '' }}
+        if: env.SSH_KEY != ''
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           touch ~/.ssh/known_hosts
           ssh-keyscan -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
+        env:
+          SSH_KEY: ${{ secrets.SSH_KEY }}
 
       - name: Install sshpass (for password auth)
-        if: ${{ secrets.SSH_PASSWORD != '' }}
+        if: env.SSH_PASSWORD != ''
         run: |
           sudo apt-get update -y
           sudo apt-get install -y sshpass
+        env:
+          SSH_PASSWORD: ${{ secrets.SSH_PASSWORD }}
 
       - name: Deploy over SSH
         env:
@@ -36,7 +40,7 @@ jobs:
           SSH_PORT: ${{ secrets.SSH_PORT }}
           SSH_USER: ${{ secrets.SSH_USER }}
           SSH_PASSWORD: ${{ secrets.SSH_PASSWORD }}
-          REPO_URL: ${{ secrets.REPO_URL || github.server_url + '/' + github.repository }}
+          REPO_URL: ${{ secrets.REPO_URL }}
           BRANCH: ${{ github.event.inputs.branch || 'main' }}
           DB_HOST: ${{ secrets.DB_HOST }}
           DB_PORT: ${{ secrets.DB_PORT }}
@@ -44,8 +48,8 @@ jobs:
           DB_PASS: ${{ secrets.DB_PASS }}
           DB_NAME: ${{ secrets.DB_NAME }}
           SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
-          APP_PORT: ${{ secrets.APP_PORT || '3000' }}
-          BASE_PATH: ${{ secrets.BASE_PATH || '' }}
+          APP_PORT: ${{ secrets.APP_PORT || '4206' }}
+          BASE_PATH: ${{ secrets.BASE_PATH }}
         run: |
           CONNECT_CMD="ssh -p \"$SSH_PORT\" -o StrictHostKeyChecking=yes"
           if [ -n "$SSH_PASSWORD" ]; then
