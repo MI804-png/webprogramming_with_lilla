@@ -14,6 +14,8 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch || 'main' }}
 
       - name: Prepare SSH key
         if: ${{ secrets.SSH_KEY != '' }}
@@ -98,7 +100,11 @@ jobs:
               echo "mysql client not installed; skipping import-db"
             fi
             # Start/Restart with PM2
-            pm2 start ecosystem.config.js --update-env || pm2 start start.js --name techcorp
+            if pm2 describe techcorp > /dev/null 2>&1; then
+              pm2 reload ecosystem.config.js --update-env || pm2 restart techcorp --update-env
+            else
+              pm2 start ecosystem.config.js --update-env || pm2 start start.js --name techcorp
+            fi
             pm2 save
             echo "Deployed. Check health: curl http://127.0.0.1:'"$APP_PORT"'/health"
           '
