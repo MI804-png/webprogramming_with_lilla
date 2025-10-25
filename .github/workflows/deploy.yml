@@ -83,7 +83,14 @@ jobs:
           git checkout "$BRANCH"
           git pull --ff-only origin "$BRANCH"
           
-          cd "$APP_DIR"
+          # Check if exercise directory exists, if not use current directory
+          if [ -d "$APP_DIR" ]; then
+            cd "$APP_DIR"
+          else
+            echo "Exercise directory not found, using root directory"
+            APP_DIR="$APP_BASE"
+            cd "$APP_DIR"
+          fi
           
           # Ensure scripts executable
           chmod +x scripts/*.sh || true
